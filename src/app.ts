@@ -19,10 +19,10 @@ function autobind(_: any, _2: string, descriptor: PropertyDescriptor) {
 class ProjectInput {
   templateElement: HTMLTemplateElement;
   hostElement: HTMLDivElement;
-  element: HTMLElement;
-  titleInputElement: HTMLElement;
-  descriptionInputElement: HTMLElement;
-  peopleInputElement: HTMLElement;
+  element: HTMLFormElement;
+  titleInputElement: HTMLInputElement;
+  descriptionInputElement: HTMLInputElement;
+  peopleInputElement: HTMLInputElement;
 
   constructor() {
     // 템플릿
@@ -36,9 +36,9 @@ class ProjectInput {
     // 해당 요소에 user-input이라는 id를 추가해줌으로서 스타일 추가 가능
     this.element.id = "user-input";
 
-    this.titleInputElement = this.element.querySelector("#title") as HTMLElement;
-    this.descriptionInputElement = this.element.querySelector("#description") as HTMLElement;
-    this.peopleInputElement = this.element.querySelector("#people") as HTMLElement;
+    this.titleInputElement = this.element.querySelector("#title") as HTMLInputElement;
+    this.descriptionInputElement = this.element.querySelector("#description") as HTMLInputElement;
+    this.peopleInputElement = this.element.querySelector("#people") as HTMLInputElement;
 
     this.configure();
     this.attach();
@@ -48,7 +48,7 @@ class ProjectInput {
   @autobind
   private submitHandler(e: Event) {
     e.preventDefault();
-    console.log(this.titleInputElement);
+    console.log(this.titleInputElement.value);
   }
 
   // 이벤트 리스너 설정
