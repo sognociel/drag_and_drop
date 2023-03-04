@@ -1,4 +1,3 @@
-import { v4 } from "uuid";
 // 객체 지향 방식으로 표현 (100% 선택사항. 하지만 클래스 등을 배웠기 때문에 어떻게 작동하는지 보기 위해 객체 지향 방식으로 진행)
 // 템플릿과 그 안의 양식에 접근하고 div에 엑세스하여 그 div안의 템플릿을 렌더링하는 것.
 // 그러면 템플릿의 내용이 엑세스한 div 안에서 실행된다.
@@ -19,10 +18,10 @@ class Project {
   ) {}
 }
 
-type Listener = (items: Project[]) => void;
-
 // Project State Management. 싱글톤 클래스
 // 싱글톤 클래스란 생성자가 여러 차례 호출되더라도 실제로 생성되는 객체는 하나이고, 최초 생성 이후에 호출된 생성자는 최초의 생성자가 생성한 객체를 리턴한다.
+type Listener = (items: Project[]) => void;
+
 class ProjectState {
   // 무언가 변경이 될 때마다 함수 호출이 되어야 하는데 변경되는 것을 확인하기 위해 listeners 생성
   private listeners: Listener[] = [];
@@ -45,7 +44,7 @@ class ProjectState {
 
   // 프로젝트 추가
   addProject(title: string, description: string, numOfPeople: number) {
-    const newProject = new Project(v4(), title, description, numOfPeople, ProjectStatus.Active);
+    const newProject = new Project(Math.random().toString(), title, description, numOfPeople, ProjectStatus.Active);
     this.projects.push(newProject);
     for (const listenerFn of this.listeners) {
       listenerFn(this.projects.slice());
@@ -125,7 +124,13 @@ class ProjectList {
     this.element.id = `${this.type}-projects`;
 
     projectState.addListener((projects: Project[]) => {
-      this.assignedProjects = projects;
+      const relevantProjects = projects.filter((prj) => {
+        if (this.type === "active") {
+          return prj.status === ProjectStatus.Active;
+        }
+        return prj.status === ProjectStatus.Finished;
+      });
+      this.assignedProjects = relevantProjects;
       this.renderProjects();
     });
 
@@ -136,6 +141,8 @@ class ProjectList {
   // project 렌더
   private renderProjects() {
     const listEl = document.getElementById(`${this.type}-projects-list`)! as HTMLUListElement;
+    // 프로젝트를 추가할 때마다 이전 프로젝트가 중복되기 때문에 모든 항목을 없앤 후 재생성
+    listEl.innerHTML = "";
     for (const prjItem of this.assignedProjects) {
       const listItem = document.createElement("li");
       listItem.textContent = prjItem.title;
