@@ -18,8 +18,7 @@ class Project {
   ) {}
 }
 
-// Project State Management. 싱글톤 클래스
-// 싱글톤 클래스란 생성자가 여러 차례 호출되더라도 실제로 생성되는 객체는 하나이고, 최초 생성 이후에 호출된 생성자는 최초의 생성자가 생성한 객체를 리턴한다.
+// 프로젝트 State 관찰...자?
 type Listener<T> = (items: T[]) => void;
 
 class State<T> {
@@ -30,6 +29,8 @@ class State<T> {
   }
 }
 
+// Project State Management. 싱글톤 클래스
+// 싱글톤 클래스란 생성자가 여러 차례 호출되더라도 실제로 생성되는 객체는 하나이고, 최초 생성 이후에 호출된 생성자는 최초의 생성자가 생성한 객체를 리턴한다.
 class ProjectState extends State<Project> {
   // 무언가 변경이 될 때마다 함수 호출이 되어야 하는데 변경되는 것을 확인하기 위해 listeners 생성
   private projects: Project[] = [];
@@ -155,6 +156,27 @@ abstract class Component<T extends HTMLElement, U extends HTMLElement> {
   abstract renderContent(): void;
 }
 
+// Project Item Class
+class ProjectItem extends Component<HTMLUListElement, HTMLLIElement> {
+  private project: Project;
+
+  constructor(hostId: string, project: Project) {
+    super("single-project", hostId, false, project.id);
+    this.project = project;
+
+    this.configure();
+    this.renderContent();
+  }
+
+  configure() {}
+
+  renderContent() {
+    this.element.querySelector("h2")!.textContent = this.project.title;
+    this.element.querySelector("h3")!.textContent = this.project.people.toString();
+    this.element.querySelector("p")!.textContent = this.project.description;
+  }
+}
+
 // 프로젝트 목록 생성 클래스
 class ProjectList extends Component<HTMLDivElement, HTMLElement> {
   assignedProjects: Project[];
@@ -193,9 +215,7 @@ class ProjectList extends Component<HTMLDivElement, HTMLElement> {
     // 프로젝트를 추가할 때마다 이전 프로젝트가 중복되기 때문에 모든 항목을 없앤 후 재생성
     listEl.innerHTML = "";
     for (const prjItem of this.assignedProjects) {
-      const listItem = document.createElement("li");
-      listItem.textContent = prjItem.title;
-      listEl.appendChild(listItem);
+      new ProjectItem(this.element.querySelector("ul")!.id, prjItem);
     }
   }
 }
