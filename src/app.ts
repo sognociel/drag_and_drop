@@ -20,15 +20,24 @@ class Project {
 
 // Project State Management. 싱글톤 클래스
 // 싱글톤 클래스란 생성자가 여러 차례 호출되더라도 실제로 생성되는 객체는 하나이고, 최초 생성 이후에 호출된 생성자는 최초의 생성자가 생성한 객체를 리턴한다.
-type Listener = (items: Project[]) => void;
+type Listener<T> = (items: T[]) => void;
 
-class ProjectState {
+class State<T> {
+  protected listeners: Listener<T>[] = [];
+
+  addListener(listenerFn: Listener<T>) {
+    this.listeners.push(listenerFn);
+  }
+}
+
+class ProjectState extends State<Project> {
   // 무언가 변경이 될 때마다 함수 호출이 되어야 하는데 변경되는 것을 확인하기 위해 listeners 생성
-  private listeners: Listener[] = [];
   private projects: Project[] = [];
   private static instance: ProjectState;
 
-  private constructor() {}
+  private constructor() {
+    super();
+  }
 
   static getInstance() {
     if (this.instance) {
@@ -38,13 +47,15 @@ class ProjectState {
     return this.instance;
   }
 
-  addListener(listenerFn: Listener) {
-    this.listeners.push(listenerFn);
-  }
-
   // 프로젝트 추가
   addProject(title: string, description: string, numOfPeople: number) {
-    const newProject = new Project(Math.random().toString(), title, description, numOfPeople, ProjectStatus.Active);
+    const newProject = new Project(
+      Math.random().toString(),
+      title,
+      description,
+      numOfPeople,
+      ProjectStatus.Active
+    );
     this.projects.push(newProject);
     for (const listenerFn of this.listeners) {
       listenerFn(this.projects.slice());
@@ -106,23 +117,58 @@ function autobind(_: any, _2: string, descriptor: PropertyDescriptor) {
   return adjDescriptor;
 }
 
-// 프로젝트 목록 생성 클래스
-class ProjectList {
+// 돔에 렌더링하는 모든 클래스의 공통 기능을 관리해주는 클래스 (부모 클래스)
+abstract class Component<T extends HTMLElement, U extends HTMLElement> {
   templateElement: HTMLTemplateElement;
-  hostElement: HTMLDivElement;
-  element: HTMLElement;
+  hostElement: T;
+  element: U;
+
+  constructor(
+    templateId: string,
+    hostElementId: string,
+    insertAtStart: boolean,
+    newElementId?: string
+  ) {
+    // 템플릿
+    this.templateElement = document.getElementById(templateId)! as HTMLTemplateElement;
+    // 템플릿 내용을 렌더링
+    this.hostElement = document.getElementById(hostElementId)! as T;
+
+    // 현재 문서가 아닌 외부 문서의 노드를 복사하여 현재 문서에 넣을 수 있도록 해준다.
+    const importedNode = document.importNode(this.templateElement.content, true);
+    // 해당 요소에 newElementId라는 id를 추가해줌으로서 스타일 추가 가능
+    this.element = importedNode.firstElementChild as U;
+    if (newElementId) {
+      this.element.id = newElementId;
+    }
+    this.attach(insertAtStart);
+  }
+
+  private attach(insertAtBeginning: boolean) {
+    this.hostElement.insertAdjacentElement(
+      insertAtBeginning ? "afterbegin" : "beforeend",
+      this.element
+    );
+  }
+
+  abstract configure(): void;
+  abstract renderContent(): void;
+}
+
+// 프로젝트 목록 생성 클래스
+class ProjectList extends Component<HTMLDivElement, HTMLElement> {
   assignedProjects: Project[];
 
   // 활성 & 비활성 프로젝트 리스트를 구분하기 위해 type 매개변수 추가
   constructor(private type: "active" | "finished") {
-    this.templateElement = document.getElementById("project-list")! as HTMLTemplateElement;
-    this.hostElement = document.getElementById("app")! as HTMLDivElement;
+    super("project-list", "app", false, `${type}-projects`);
     this.assignedProjects = [];
 
-    const importedNode = document.importNode(this.templateElement.content, true);
-    this.element = importedNode.firstElementChild as HTMLFormElement;
-    this.element.id = `${this.type}-projects`;
+    this.configure();
+    this.renderContent();
+  }
 
+  configure() {
     projectState.addListener((projects: Project[]) => {
       const relevantProjects = projects.filter((prj) => {
         if (this.type === "active") {
@@ -133,9 +179,12 @@ class ProjectList {
       this.assignedProjects = relevantProjects;
       this.renderProjects();
     });
+  }
 
-    this.attach();
-    this.renderContent();
+  renderContent() {
+    const listId = `${this.type}-projects-list`;
+    this.element.querySelector("ul")!.id = listId;
+    this.element.querySelector("h2")!.textContent = `${this.type.toUpperCase()} PROJECTS`;
   }
 
   // project 렌더
@@ -149,47 +198,29 @@ class ProjectList {
       listEl.appendChild(listItem);
     }
   }
-
-  private renderContent() {
-    const listId = `${this.type}-projects-list`;
-    this.element.querySelector("ul")!.id = listId;
-    this.element.querySelector("h2")!.textContent = `${this.type.toUpperCase()} PROJECTS`;
-  }
-
-  private attach() {
-    this.hostElement.insertAdjacentElement("beforeend", this.element);
-  }
 }
 
 // ProjectInput이라는 클래스에 constructor를 추가하여 여기에서 템플릿과 렌더링되어야 하는 위치에 접근한다.
 // 양식 생성과 사용자 입력 수집 담당 클래스
-class ProjectInput {
-  templateElement: HTMLTemplateElement;
-  hostElement: HTMLDivElement;
-  element: HTMLFormElement;
+class ProjectInput extends Component<HTMLDivElement, HTMLFormElement> {
   titleInputElement: HTMLInputElement;
   descriptionInputElement: HTMLInputElement;
   peopleInputElement: HTMLInputElement;
 
   constructor() {
-    // 템플릿
-    this.templateElement = document.getElementById("project-input")! as HTMLTemplateElement;
-    // 템플릿 내용을 렌더링
-    this.hostElement = document.getElementById("app")! as HTMLDivElement;
-
-    // 현재 문서가 아닌 외부 문서의 노드를 복사하여 현재 문서에 넣을 수 있도록 해준다.
-    const importedNode = document.importNode(this.templateElement.content, true);
-    this.element = importedNode.firstElementChild as HTMLFormElement;
-    // 해당 요소에 user-input이라는 id를 추가해줌으로서 스타일 추가 가능
-    this.element.id = "user-input";
-
+    super("project-input", "app", true, "user-input");
     this.titleInputElement = this.element.querySelector("#title") as HTMLInputElement;
     this.descriptionInputElement = this.element.querySelector("#description") as HTMLInputElement;
     this.peopleInputElement = this.element.querySelector("#people") as HTMLInputElement;
 
     this.configure();
-    this.attach();
   }
+
+  configure() {
+    this.element.addEventListener("submit", this.submitHandler);
+  }
+
+  renderContent() {}
 
   private gatherUserInput(): [string, string, number] | void {
     const enteredTitle = this.titleInputElement.value;
@@ -212,7 +243,11 @@ class ProjectInput {
       max: 10,
     };
 
-    if (!validate(titleValidatable) || !validate(descriptionValidatable) || !validate(peopleValidatable)) {
+    if (
+      !validate(titleValidatable) ||
+      !validate(descriptionValidatable) ||
+      !validate(peopleValidatable)
+    ) {
       alert("Invalid input, please try again!");
       return;
     } else {
@@ -236,15 +271,6 @@ class ProjectInput {
       projectState.addProject(title, desc, people);
       this.clearInputs();
     }
-  }
-
-  // 이벤트 리스너 설정
-  private configure() {
-    this.element.addEventListener("submit", this.submitHandler);
-  }
-
-  private attach() {
-    this.hostElement.insertAdjacentElement("afterbegin", this.element);
   }
 }
 
